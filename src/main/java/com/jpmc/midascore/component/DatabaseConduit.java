@@ -2,6 +2,7 @@ package com.jpmc.midascore.component;
 
 import com.jpmc.midascore.entity.UserRecord;
 import com.jpmc.midascore.entity.TransactionRecord;
+import com.jpmc.midascore.foundation.Incentive;
 import com.jpmc.midascore.foundation.Transaction;
 import com.jpmc.midascore.repository.TransactionRecordRepository;
 import com.jpmc.midascore.repository.UserRepository;
@@ -12,10 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class DatabaseConduit {
     private final UserRepository userRepository;
     private final TransactionRecordRepository transactionRecordRepository;
+    private final IncentiveApiClient incentiveApiClient;
 
-    public DatabaseConduit(UserRepository userRepository, TransactionRecordRepository transactionRecordRepository) {
+    public DatabaseConduit(UserRepository userRepository, TransactionRecordRepository transactionRecordRepository,
+                           IncentiveApiClient incentiveApiClient) {
         this.userRepository = userRepository;
         this.transactionRecordRepository = transactionRecordRepository;
+        this.incentiveApiClient = incentiveApiClient;
     }
 
     public void save(UserRecord userRecord) {
@@ -32,12 +36,15 @@ public class DatabaseConduit {
             return;
         }
 
+        Incentive incentive = incentiveApiClient.getIncentive(transaction);
+        float incentiveAmount = incentive == null ? 0 : incentive.getAmount();
+
         sender.setBalance(sender.getBalance() - amount);
-        recipient.setBalance(recipient.getBalance() + amount);
+        recipient.setBalance(recipient.getBalance() + amount + incentiveAmount);
 
         userRepository.save(sender);
         userRepository.save(recipient);
-        transactionRecordRepository.save(new TransactionRecord(sender, recipient, amount));
+        transactionRecordRepository.save(new TransactionRecord(sender, recipient, amount, incentiveAmount));
     }
 
 }
